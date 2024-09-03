@@ -148,64 +148,67 @@ export class TypedSqlTagTransformer {
     `  return sourceSql([s] as any);`,
     `}`,
   ];
-
+  
   private async generateTypedSQLTagFile(typeDecsSets: TypeDeclarationSet[]) {
     console.log(`Generating ${this.fullFileName}...`);
-    
-    let queryTypes = '';
-    let typedSQLOverloadFns = '';
 
-    console.log('typeDecsSets', JSON.stringify(typeDecsSets, null, 2));
+    const aliasTypeDefinitions = uniqBy(
+        typeDecsSets.flatMap(it => it.typeDefinitions.aliases),
+        it => it.name
+    ).map(it => TypeAllocator.typeDefinitionDeclarations(
+        this.transform.emitFileName,
+        { aliases: [it], imports: {}, enums: [] }
+    ));
 
-    const aliasTypeDefinitions = uniqBy(typeDecsSets.flatMap((it) => it.typeDefinitions.aliases), (it) => it.name).map((it) => TypeAllocator.typeDefinitionDeclarations(
-      this.transform.emitFileName, {aliases: [it], imports: {}, enums: []},));
+    const enumTypeDefinitions = uniqBy(
+        typeDecsSets.flatMap(it => it.typeDefinitions.enums),
+        it => it.name
+    ).map(it => TypeAllocator.typeDefinitionDeclarations(
+        this.transform.emitFileName,
+        { aliases: [], imports: {}, enums: [it] }
+    ));
 
-    // const importTypeDefinitions = uniqBy(typeDecsSets.flatMap((it) => it.typeDefinitions.imports), (it) => it.name).map((it) => TypeAllocator.typeDefinitionDeclarations(
-    //   this.transform.emitFileName, {aliases: [], imports: it, enums: []},));
+    const importTypeDefinitions = uniqBy(
+        typeDecsSets.flatMap(it => Object.entries(it.typeDefinitions.imports).flatMap(([key, imports]) => imports)),
+        it => it.name
+    ).map(it => TypeAllocator.typeDefinitionDeclarations(
+        this.transform.emitFileName,
+        { aliases: [], imports: { [it.name]: [it] }, enums: [] }
+    ));
 
-    const enumTypeDefinitions = uniqBy(typeDecsSets.flatMap((it) => it.typeDefinitions.enums), (it) => it.name).map((it) => TypeAllocator.typeDefinitionDeclarations(
-      this.transform.emitFileName, {aliases: [], imports: {}, enums: [it]},));
+    const normalizeQueryText = (text: string) => text.replace(/\s+/g, ' ').trim();
 
-    // const importTypeDefinitions = new Set(typeDecsSets.flatMap((it) => TypeAllocator.typeDefinitionDeclarations(
-    //     this.transform.emitFileName, {aliases: [], imports: it.typeDefinitions.imports, enums: []},)))
+    const groupedTypedQueries = typeDecsSets.flatMap(it => it.typedQueries as TSTypedQuery[])
+        .reduce((acc, query) => {
+            const normalizedText = normalizeQueryText(query.query.ast.text);
+            if (!acc[normalizedText]) {
+                acc[normalizedText] = {
+                    types: query,
+                    queries: []
+                };
+            }
+            acc[normalizedText].queries.push(query);
+            return acc;
+        }, {} as Record<string, { types: TSTypedQuery; queries: TSTypedQuery[] }>);
 
-    // const enumTypeDefinitions = new Set(typeDecsSets.flatMap((it) => TypeAllocator.typeDefinitionDeclarations(
-    //     this.transform.emitFileName, {aliases: [], imports: {}, enums: it.typeDefinitions.enums},)))
-      
-    
-    const uniqTypedQueries = uniqBy(typeDecsSets.flatMap((it) => it.typedQueries) as TSTypedQuery[], (it) => it.query.ast.text);
+    const uniqTypedQueries = Object.values(groupedTypedQueries).map(group => group.types);
+
+    const overloads = Object.values(groupedTypedQueries).flatMap(group =>
+        genTypedSQLOverloadFunctions(this.transform.functionName, group.queries)
+    );
 
     await fs.outputFile(this.fullFileName, [
-      this.contentStart,
-      ...aliasTypeDefinitions,
-      // ...importTypeDefinitions,
-      ...enumTypeDefinitions,
-      generateDeclarations(uniqTypedQueries),
-      genTypedSQLOverloadFunctions(this.transform.functionName, uniqTypedQueries as TSTypedQuery[]),
-      '\n\n',
-      ...this.contentEnd,
+        this.contentStart,
+        ...aliasTypeDefinitions,
+        ...enumTypeDefinitions,
+        ...importTypeDefinitions,
+        generateDeclarations(uniqTypedQueries),
+        overloads.join('\n'),
+        '\n\n',
+        ...this.contentEnd,
     ].join('\n'));
 
-
-    // for (const typeDecSet of typeDecsSets) {
-    //   typeDefinitions += TypeAllocator.typeDefinitionDeclarations(
-    //     this.transform.emitFileName,
-    //     typeDecSet.typeDefinitions,
-    //   );
-    //   queryTypes += generateDeclarations(typeDecSet.typedQueries);
-    //   typedSQLOverloadFns += genTypedSQLOverloadFunctions(
-    //     this.transform.functionName,
-    //     typeDecSet.typedQueries as TSTypedQuery[],
-    //   );
-    // }
-
-    // let content = this.contentStart;
-    // content += typeDefinitions;
-    // content += queryTypes;
-    // content += typedSQLOverloadFns;
-    // content += '\n\n';
-    // content += this.contentEnd.join('\n');
-    
     console.log(`Saved ${this.fullFileName}`);
   }
+
 }
