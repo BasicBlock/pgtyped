@@ -31,12 +31,31 @@ function mapQueryResultRows(rows: any[]): any[] {
   return rows;
 }
 
+export class NotFoundError extends Error {
+  constructor() {
+    super('Not found');
+    this.name = 'NotFoundError';
+  }
+}
+
+export class TooManyRowsError extends Error {
+  constructor() {
+    super('Too many rows');
+    this.name = 'TooManyRowsError';
+  }
+}
+
 /* Used for SQL-in-TS */
 export class TaggedQuery<TTypePair extends { params: any; result: any }> {
   public run: (
     params: TTypePair['params'],
     dbConnection: IDatabaseConnection,
   ) => Promise<Array<TTypePair['result']>>;
+
+  public one: (
+    params: TTypePair['params'],
+    dbConnection: IDatabaseConnection,
+  ) => Promise<TTypePair['result']>;
 
   public stream: (
     params: TTypePair['params'],
@@ -55,6 +74,24 @@ export class TaggedQuery<TTypePair extends { params: any; result: any }> {
       const result = await connection.query(processedQuery, bindings);
       return mapQueryResultRows(result.rows);
     };
+    this.one = async (params, connection) => {
+      const { query: processedQuery, bindings } = processTSQueryAST(
+        this.query,
+        params as any,
+      );
+      const result = await connection.query(processedQuery, bindings);
+      const rows = mapQueryResultRows(result.rows);
+
+      if (rows.length === 0) {
+        throw new NotFoundError()
+      }
+
+      if (rows.length > 1) {
+        throw new TooManyRowsError()
+      }
+
+      return rows[0];
+    }
     this.stream = (params, connection) => {
       const { query: processedQuery, bindings } = processTSQueryAST(
         this.query,
