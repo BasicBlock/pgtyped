@@ -34,6 +34,7 @@
     "pgtyped": "lib/index.js"
   },
   "dependencies": {
+    "lodash": "4.17.21",
     "@pgtyped/parser": "^2.3.0",
     "@pgtyped/query": "^2.3.0",
     "@pgtyped/wire": "^2.3.0",
@@ -54,6 +55,7 @@
     "yargs": "^17.0.1"
   },
   "devDependencies": {
+    "@types/lodash": "4.17.7",
     "@types/debug": "4.1.12",
     "@types/fs-extra": "11.0.4",
     "@types/nunjucks": "^3.1.3",

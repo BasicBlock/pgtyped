@@ -24,16 +24,15 @@ export function parseFile(
       const callNode = node as ts.CallExpression;
       const functionName = callNode.expression.getText();
       if (functionName === transformConfig.functionName) {
-        const queryName = callNode.parent.getChildren()[0].getText();
         const queryText = callNode.arguments[0].getText().slice(1, -1).trim();
         foundNodes.push({
-          queryName,
+          queryName: queryText,
           queryText,
         });
       }
     }
 
-    if (node.kind === ts.SyntaxKind.TaggedTemplateExpression) {
+    if (node.kind === ts.SyntaxKind.TaggedTemplateExpression && transformConfig?.mode !== 'ts-implicit') {
       const queryName = node.parent.getChildren()[0].getText();
       const taggedTemplateNode = node as ts.TaggedTemplateExpression;
       const tagName = taggedTemplateNode.tag.getText();

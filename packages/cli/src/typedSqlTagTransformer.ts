@@ -16,6 +16,20 @@ import { getTypeDecsFnResult } from './worker.js';
 
 type TypedSQLTagTransformResult = TypeDeclarationSet | undefined;
 
+function uniqBy<T>(array: T[], keyFn: (item: T) => string | number): T[] {
+  return array.reduce<T[]>((acc, item) => {
+      const key = keyFn(item);
+      const isDuplicate = acc.some(existingItem => keyFn(existingItem) === key);
+
+      if (!isDuplicate) {
+          acc.push(item);
+      }
+
+      return acc;
+  }, []);
+}
+
+
 // tslint:disable:no-console
 export class TypedSqlTagTransformer {
   public readonly workQueue: Promise<TypedSQLTagTransformResult>[] = [];
@@ -137,29 +151,61 @@ export class TypedSqlTagTransformer {
 
   private async generateTypedSQLTagFile(typeDecsSets: TypeDeclarationSet[]) {
     console.log(`Generating ${this.fullFileName}...`);
-    let typeDefinitions = '';
+    
     let queryTypes = '';
     let typedSQLOverloadFns = '';
 
-    for (const typeDecSet of typeDecsSets) {
-      typeDefinitions += TypeAllocator.typeDefinitionDeclarations(
-        this.transform.emitFileName,
-        typeDecSet.typeDefinitions,
-      );
-      queryTypes += generateDeclarations(typeDecSet.typedQueries);
-      typedSQLOverloadFns += genTypedSQLOverloadFunctions(
-        this.transform.functionName,
-        typeDecSet.typedQueries as TSTypedQuery[],
-      );
-    }
+    console.log('typeDecsSets', JSON.stringify(typeDecsSets, null, 2));
 
-    let content = this.contentStart;
-    content += typeDefinitions;
-    content += queryTypes;
-    content += typedSQLOverloadFns;
-    content += '\n\n';
-    content += this.contentEnd.join('\n');
-    await fs.outputFile(this.fullFileName, content);
+    const aliasTypeDefinitions = uniqBy(typeDecsSets.flatMap((it) => it.typeDefinitions.aliases), (it) => it.name).map((it) => TypeAllocator.typeDefinitionDeclarations(
+      this.transform.emitFileName, {aliases: [it], imports: {}, enums: []},));
+
+    // const importTypeDefinitions = uniqBy(typeDecsSets.flatMap((it) => it.typeDefinitions.imports), (it) => it.name).map((it) => TypeAllocator.typeDefinitionDeclarations(
+    //   this.transform.emitFileName, {aliases: [], imports: it, enums: []},));
+
+    const enumTypeDefinitions = uniqBy(typeDecsSets.flatMap((it) => it.typeDefinitions.enums), (it) => it.name).map((it) => TypeAllocator.typeDefinitionDeclarations(
+      this.transform.emitFileName, {aliases: [], imports: {}, enums: [it]},));
+
+    // const importTypeDefinitions = new Set(typeDecsSets.flatMap((it) => TypeAllocator.typeDefinitionDeclarations(
+    //     this.transform.emitFileName, {aliases: [], imports: it.typeDefinitions.imports, enums: []},)))
+
+    // const enumTypeDefinitions = new Set(typeDecsSets.flatMap((it) => TypeAllocator.typeDefinitionDeclarations(
+    //     this.transform.emitFileName, {aliases: [], imports: {}, enums: it.typeDefinitions.enums},)))
+      
+    
+    const uniqTypedQueries = uniqBy(typeDecsSets.flatMap((it) => it.typedQueries) as TSTypedQuery[], (it) => it.query.ast.text);
+
+    await fs.outputFile(this.fullFileName, [
+      this.contentStart,
+      ...aliasTypeDefinitions,
+      // ...importTypeDefinitions,
+      ...enumTypeDefinitions,
+      generateDeclarations(uniqTypedQueries),
+      genTypedSQLOverloadFunctions(this.transform.functionName, uniqTypedQueries as TSTypedQuery[]),
+      '\n\n',
+      ...this.contentEnd,
+    ].join('\n'));
+
+
+    // for (const typeDecSet of typeDecsSets) {
+    //   typeDefinitions += TypeAllocator.typeDefinitionDeclarations(
+    //     this.transform.emitFileName,
+    //     typeDecSet.typeDefinitions,
+    //   );
+    //   queryTypes += generateDeclarations(typeDecSet.typedQueries);
+    //   typedSQLOverloadFns += genTypedSQLOverloadFunctions(
+    //     this.transform.functionName,
+    //     typeDecSet.typedQueries as TSTypedQuery[],
+    //   );
+    // }
+
+    // let content = this.contentStart;
+    // content += typeDefinitions;
+    // content += queryTypes;
+    // content += typedSQLOverloadFns;
+    // content += '\n\n';
+    // content += this.contentEnd.join('\n');
+    
     console.log(`Saved ${this.fullFileName}`);
   }
 }
