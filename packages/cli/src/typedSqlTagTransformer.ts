@@ -176,7 +176,37 @@ export class TypedSqlTagTransformer {
         { aliases: [], imports: { [it.name]: [it] }, enums: [] }
     ));
 
-    const normalizeQueryText = (text: string) => text.replace(/\s+/g, ' ').trim().toLowerCase();
+    function normalizeQueryText(s: string): string {
+      let normalized = '';
+      let inQuotes = false;
+      let currentQuote = '';
+  
+      // Iterate through each character in the string
+      for (let i = 0; i < s.length; i++) {
+          const char = s[i];
+  
+          if (char === '"') {
+              inQuotes = !inQuotes;
+              if (!inQuotes) {
+                  // When closing quotes, add the entire quoted text as-is
+                  normalized += `"${currentQuote}"`;
+                  currentQuote = '';
+              }
+          } else if (inQuotes) {
+              // Inside quotes, preserve the text as-is
+              currentQuote += char;
+          } else if (!inQuotes && !char.trim()) {
+              // Outside quotes, skip whitespace
+              continue;
+          } else {
+              // Outside quotes, add lowercase character
+              normalized += char.toLowerCase();
+          }
+      }
+  
+      return normalized;
+  }
+  
 
     const groupedTypedQueries = typeDecsSets.flatMap(it => it.typedQueries as TSTypedQuery[])
         .reduce((acc, query) => {

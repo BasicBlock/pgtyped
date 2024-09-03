@@ -128,7 +128,36 @@ export class TypedSqlTagTransformer {
             const aliasTypeDefinitions = uniqBy(typeDecsSets.flatMap(it => it.typeDefinitions.aliases), it => it.name).map(it => TypeAllocator.typeDefinitionDeclarations(this.transform.emitFileName, { aliases: [it], imports: {}, enums: [] }));
             const enumTypeDefinitions = uniqBy(typeDecsSets.flatMap(it => it.typeDefinitions.enums), it => it.name).map(it => TypeAllocator.typeDefinitionDeclarations(this.transform.emitFileName, { aliases: [], imports: {}, enums: [it] }));
             const importTypeDefinitions = uniqBy(typeDecsSets.flatMap(it => Object.entries(it.typeDefinitions.imports).flatMap(([key, imports]) => imports)), it => it.name).map(it => TypeAllocator.typeDefinitionDeclarations(this.transform.emitFileName, { aliases: [], imports: { [it.name]: [it] }, enums: [] }));
-            const normalizeQueryText = (text) => text.replace(/\s+/g, ' ').trim().toLowerCase();
+            function normalizeQueryText(s) {
+                let normalized = '';
+                let inQuotes = false;
+                let currentQuote = '';
+                // Iterate through each character in the string
+                for (let i = 0; i < s.length; i++) {
+                    const char = s[i];
+                    if (char === '"') {
+                        inQuotes = !inQuotes;
+                        if (!inQuotes) {
+                            // When closing quotes, add the entire quoted text as-is
+                            normalized += `"${currentQuote}"`;
+                            currentQuote = '';
+                        }
+                    }
+                    else if (inQuotes) {
+                        // Inside quotes, preserve the text as-is
+                        currentQuote += char;
+                    }
+                    else if (!inQuotes && !char.trim()) {
+                        // Outside quotes, skip whitespace
+                        continue;
+                    }
+                    else {
+                        // Outside quotes, add lowercase character
+                        normalized += char.toLowerCase();
+                    }
+                }
+                return normalized;
+            }
             const groupedTypedQueries = typeDecsSets.flatMap(it => it.typedQueries)
                 .reduce((acc, query) => {
                 const normalizedText = normalizeQueryText(query.query.ast.text);
