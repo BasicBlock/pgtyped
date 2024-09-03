@@ -128,7 +128,7 @@ export class TypedSqlTagTransformer {
             const aliasTypeDefinitions = uniqBy(typeDecsSets.flatMap(it => it.typeDefinitions.aliases), it => it.name).map(it => TypeAllocator.typeDefinitionDeclarations(this.transform.emitFileName, { aliases: [it], imports: {}, enums: [] }));
             const enumTypeDefinitions = uniqBy(typeDecsSets.flatMap(it => it.typeDefinitions.enums), it => it.name).map(it => TypeAllocator.typeDefinitionDeclarations(this.transform.emitFileName, { aliases: [], imports: {}, enums: [it] }));
             const importTypeDefinitions = uniqBy(typeDecsSets.flatMap(it => Object.entries(it.typeDefinitions.imports).flatMap(([key, imports]) => imports)), it => it.name).map(it => TypeAllocator.typeDefinitionDeclarations(this.transform.emitFileName, { aliases: [], imports: { [it.name]: [it] }, enums: [] }));
-            const normalizeQueryText = (text) => text.replace(/\s+/g, ' ').trim();
+            const normalizeQueryText = (text) => text.replace(/\s+/g, ' ').trim().toLowerCase();
             const groupedTypedQueries = typeDecsSets.flatMap(it => it.typedQueries)
                 .reduce((acc, query) => {
                 const normalizedText = normalizeQueryText(query.query.ast.text);

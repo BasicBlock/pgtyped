@@ -148,7 +148,7 @@ export class TypedSqlTagTransformer {
     `  return sourceSql([s] as any);`,
     `}`,
   ];
-  
+
   private async generateTypedSQLTagFile(typeDecsSets: TypeDeclarationSet[]) {
     console.log(`Generating ${this.fullFileName}...`);
 
@@ -176,7 +176,7 @@ export class TypedSqlTagTransformer {
         { aliases: [], imports: { [it.name]: [it] }, enums: [] }
     ));
 
-    const normalizeQueryText = (text: string) => text.replace(/\s+/g, ' ').trim();
+    const normalizeQueryText = (text: string) => text.replace(/\s+/g, ' ').trim().toLowerCase();
 
     const groupedTypedQueries = typeDecsSets.flatMap(it => it.typedQueries as TSTypedQuery[])
         .reduce((acc, query) => {
