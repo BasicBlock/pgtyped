@@ -36,7 +36,7 @@
   "dependencies": {
     "lodash": "4.17.21",
     "@pgtyped/parser": "^2.3.0",
-    "@pgtyped/query": "file:../query",
+    "@pgtyped/query": "^2.3.0",
     "@pgtyped/wire": "^2.3.0",
     "camel-case": "^5.0.0",
     "chalk": "^4.0.0",
