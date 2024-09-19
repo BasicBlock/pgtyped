@@ -125,9 +125,9 @@ export class TypedSqlTagTransformer {
     generateTypedSQLTagFile(typeDecsSets) {
         return __awaiter(this, void 0, void 0, function* () {
             console.log(`Generating ${this.fullFileName}...`);
-            const aliasTypeDefinitions = uniqBy(typeDecsSets.flatMap(it => it.typeDefinitions.aliases), it => it.name).map(it => TypeAllocator.typeDefinitionDeclarations(this.transform.emitFileName, { aliases: [it], imports: {}, enums: [] }));
-            const enumTypeDefinitions = uniqBy(typeDecsSets.flatMap(it => it.typeDefinitions.enums), it => it.name).map(it => TypeAllocator.typeDefinitionDeclarations(this.transform.emitFileName, { aliases: [], imports: {}, enums: [it] }));
-            const importTypeDefinitions = uniqBy(typeDecsSets.flatMap(it => Object.entries(it.typeDefinitions.imports).flatMap(([key, imports]) => imports)), it => it.name).map(it => TypeAllocator.typeDefinitionDeclarations(this.transform.emitFileName, { aliases: [], imports: { [it.name]: [it] }, enums: [] }));
+            const aliasTypeDefinitions = uniqBy(typeDecsSets.flatMap(it => it.typeDefinitions.aliases), it => it.name).map(it => TypeAllocator.typeDefinitionDeclarations(this.transform.emitFileName, { aliases: [it], imports: {}, enums: [] })).sort();
+            const enumTypeDefinitions = uniqBy(typeDecsSets.flatMap(it => it.typeDefinitions.enums), it => it.name).map(it => TypeAllocator.typeDefinitionDeclarations(this.transform.emitFileName, { aliases: [], imports: {}, enums: [it] })).sort();
+            const importTypeDefinitions = uniqBy(typeDecsSets.flatMap(it => Object.entries(it.typeDefinitions.imports).flatMap(([key, imports]) => imports)), it => it.name).map(it => TypeAllocator.typeDefinitionDeclarations(this.transform.emitFileName, { aliases: [], imports: { [it.name]: [it] }, enums: [] })).sort();
             function normalizeQueryText(s) {
                 let normalized = '';
                 let inQuotes = false;
@@ -170,8 +170,8 @@ export class TypedSqlTagTransformer {
                 acc[normalizedText].queries.push(query);
                 return acc;
             }, {});
-            const uniqTypedQueries = Object.values(groupedTypedQueries).map(group => group.types);
-            const overloads = Object.values(groupedTypedQueries).flatMap(group => genTypedSQLOverloadFunctions(this.transform.functionName, group.queries));
+            const uniqTypedQueries = Object.values(groupedTypedQueries).map(group => group.types).sort();
+            const overloads = Object.values(groupedTypedQueries).flatMap(group => genTypedSQLOverloadFunctions(this.transform.functionName, group.queries)).sort();
             yield fs.outputFile(this.fullFileName, [
                 this.contentStart,
                 ...aliasTypeDefinitions,

@@ -158,7 +158,7 @@ export class TypedSqlTagTransformer {
     ).map(it => TypeAllocator.typeDefinitionDeclarations(
         this.transform.emitFileName,
         { aliases: [it], imports: {}, enums: [] }
-    ));
+    )).sort();
 
     const enumTypeDefinitions = uniqBy(
         typeDecsSets.flatMap(it => it.typeDefinitions.enums),
@@ -166,7 +166,7 @@ export class TypedSqlTagTransformer {
     ).map(it => TypeAllocator.typeDefinitionDeclarations(
         this.transform.emitFileName,
         { aliases: [], imports: {}, enums: [it] }
-    ));
+    )).sort();
 
     const importTypeDefinitions = uniqBy(
         typeDecsSets.flatMap(it => Object.entries(it.typeDefinitions.imports).flatMap(([key, imports]) => imports)),
@@ -174,7 +174,7 @@ export class TypedSqlTagTransformer {
     ).map(it => TypeAllocator.typeDefinitionDeclarations(
         this.transform.emitFileName,
         { aliases: [], imports: { [it.name]: [it] }, enums: [] }
-    ));
+    )).sort();
 
     function normalizeQueryText(s: string): string {
       let normalized = '';
@@ -221,11 +221,11 @@ export class TypedSqlTagTransformer {
             return acc;
         }, {} as Record<string, { types: TSTypedQuery; queries: TSTypedQuery[] }>);
 
-    const uniqTypedQueries = Object.values(groupedTypedQueries).map(group => group.types);
+    const uniqTypedQueries = Object.values(groupedTypedQueries).map(group => group.types).sort();
 
     const overloads = Object.values(groupedTypedQueries).flatMap(group =>
         genTypedSQLOverloadFunctions(this.transform.functionName, group.queries)
-    );
+    ).sort();
 
     await fs.outputFile(this.fullFileName, [
         this.contentStart,
