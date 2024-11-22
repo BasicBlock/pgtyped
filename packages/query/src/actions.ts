@@ -274,6 +274,8 @@ interface TypeRow {
   enumLabel: string;
   typeCategory?: TypeCategory;
   elementTypeOid?: string;
+  typeModifier?: string;
+  baseType?: string;
 }
 
 // Aggregate rows from database types catalog into MappableTypes
@@ -284,20 +286,18 @@ export function reduceTypeRows(
     .filter((r) => r.typeKind === DatabaseTypeKind.Enum)
     .reduce((typeMap, { oid, typeName, enumLabel }) => {
       const typ = typeMap[oid] ?? typeName;
-
-      // We should get one row per enum value
+      
       return {
         ...typeMap,
         [oid]: {
           name: typeName,
-          // Merge enum values
           enumValues: [...(isEnum(typ) ? typ.enumValues : []), enumLabel],
         },
       };
     }, {} as Record<string, MappableType>);
+
   return typeRows.reduce(
-    (typeMap, { oid, typeName, typeCategory, elementTypeOid }) => {
-      // Attempt to merge any partially defined types
+    (typeMap, { oid, typeName, typeCategory, typeModifier, elementTypeOid }) => {
       const typ = typeMap[oid] ?? typeName;
 
       if (oid in enumTypes) {
@@ -317,7 +317,6 @@ export function reduceTypeRows(
           },
         };
       }
-
       return { ...typeMap, [oid]: typ };
     },
     {} as Record<string, MappableType>,
@@ -329,30 +328,43 @@ async function runTypesCatalogQuery(
   typeOIDs: number[],
   queue: AsyncQueue,
 ): Promise<TypeRow[]> {
+  if (typeOIDs.length === 0) return [];
+  
   let rows: any[];
   if (typeOIDs.length > 0) {
-    const concatenatedTypeOids = typeOIDs.join(',');
-    rows = await runQuery(
-      `
-SELECT pt.oid, pt.typname, pt.typtype, pe.enumlabel, pt.typelem, pt.typcategory
+  const concatenatedTypeOids = typeOIDs.join(',');
+  rows = await runQuery(
+    `
+SELECT 
+  pt.oid, 
+  pt.typname,
+  pt.typtype, 
+  pe.enumlabel, 
+  pt.typelem, 
+  pt.typcategory,
+  pt.typtypmod,
+  pt.typbasetype
 FROM pg_type pt
 LEFT JOIN pg_enum pe ON pt.oid = pe.enumtypid
-WHERE pt.oid IN (${concatenatedTypeOids})
+WHERE pt.oid IN (${concatenatedTypeOids}) OR pt.typtypmod IN (${concatenatedTypeOids})
 OR pt.oid IN (SELECT typelem FROM pg_type ptn WHERE ptn.oid IN (${concatenatedTypeOids}));
 `,
-      queue,
-    );
-  } else {
-    rows = [];
-  }
+    queue,
+  );
+} else {
+  rows = [];
+}
+
   return rows.map(
-    ([oid, typeName, typeKind, enumLabel, elementTypeOid, typeCategory]) => ({
+    ([oid, typeName, typeKind, enumLabel, elementTypeOid, typeCategory, typeModifier, baseType]) => ({
       oid,
       typeName,
       typeKind,
       enumLabel,
       elementTypeOid,
       typeCategory,
+      typeModifier,
+      baseType
     }),
   );
 }
@@ -403,7 +415,7 @@ export async function getTypes(
   const { params, fields } = typeData;
 
   const paramTypeOIDs = params.map((p) => p.oid);
-  const returnTypesOIDs = fields.map((f) => f.typeOID);
+  const returnTypesOIDs = fields.flatMap((f) => f.typeModifier !== -1 ? [f.typeModifier, f.typeOID]: [f.typeOID]);
   const usedTypesOIDs = paramTypeOIDs.concat(returnTypesOIDs);
   const typeRows = await runTypesCatalogQuery(usedTypesOIDs, queue);
   const commentRows = await getComments(fields, queue);
@@ -450,15 +462,29 @@ export async function getTypes(
     commentMap[`${c.tableOID}:${c.columnAttrNumber}`] = c.comment;
   }
 
-  const returnTypes = fields.map((f) => ({
+  const returnTypes = fields.map((f) => {
+
+    const type = typeRows.find((r) => Number(r.typeModifier) !== -1 ? (Number(r.baseType) === f.typeOID && Number(r.typeModifier) === f.typeModifier) : Number(r.oid) === f.typeOID)
+
+    if (!type) {
+      throw new Error(`Type not found for oid: ${f.typeOID} modifier: ${f.typeModifier}`);
+    }
+
+    return ({
     ...attrMap[getAttid(f)],
     ...(commentMap[getAttid(f)] ? { comment: commentMap[getAttid(f)] } : {}),
     returnName: f.name,
-    type: typeMap[f.typeOID],
-  }));
+    type: type.typeName
+  })});
+
 
   const paramMetadata = {
-    params: params.map(({ oid }) => typeMap[oid]),
+    params: params.map(({ oid }) => {
+      if (!typeMap[oid]) {
+        throw new Error(`Unknown type oid: ${oid}`);
+      }
+      return typeMap[oid]
+    }),
     mapping: queryData.mapping,
   };
 

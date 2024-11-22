@@ -205,6 +205,9 @@ export class TypeAllocator {
             }
         }
         else {
+            if (!(typeNameOrType === null || typeNameOrType === void 0 ? void 0 : typeNameOrType.name)) {
+                throw new Error('Type must have a name');
+            }
             if (isEnumArray(typeNameOrType)) {
                 if ((_a = this.mapping[typeNameOrType.elementType.name]) === null || _a === void 0 ? void 0 : _a[scope]) {
                     typ = getArray({

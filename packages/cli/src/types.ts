@@ -289,6 +289,10 @@ export class TypeAllocator {
         typ = this.mapping[typeNameOrType][scope];
       }
     } else {
+      if (!typeNameOrType?.name) {
+        throw new Error('Type must have a name');
+      }
+      
       if (isEnumArray(typeNameOrType)) {
         if (this.mapping[typeNameOrType.elementType.name]?.[scope]) {
           typ = getArray({
@@ -299,6 +303,7 @@ export class TypeAllocator {
         } else {
           typ = getArray(typeNameOrType.elementType);
         }
+
         // make sure the element type is used so it appears in the declaration
         this.use(typeNameOrType.elementType, scope);
       } else {
