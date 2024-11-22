@@ -36,7 +36,7 @@
   "dependencies": {
     "lodash": "4.17.21",
     "@pgtyped/parser": "^2.3.0",
-    "@pgtyped/query": "github:BasicBlock/pgtyped#1d29f59e3700d93d0d20b15722633fb35be0d125",
+    "@pgtyped/query": "https://gitpkg.vercel.app/BasicBlock/pgtyped/packages/query?1d29f59e3700d93d0d20b15722633fb35be0d125",
     "@pgtyped/wire": "^2.3.0",
     "camel-case": "^5.0.0",
     "chalk": "^4.0.0",
